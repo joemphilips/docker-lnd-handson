@@ -1,6 +1,8 @@
 
 ## How to run tutorial
 
+### Basic setup
+
 ```sh
 source env.sh
 docker-compose up
@@ -35,6 +37,11 @@ lncli --tlscertpath=/data/tls.cert --macaroonpath=/data/chain/bitcoin/regtest/ad
 # check now we have one
 ./docker-lncli-alice.sh listpeers
 ./docker-lncli-bob.sh listpeers
+```
+
+### Channel open/close
+
+```sh
 
 ## To open the channel, we need to estimate fee, so first fill txs into mempool and several blocks
 ./cliutils/prepare_tx_for_fee.sh
@@ -72,6 +79,27 @@ lncli --tlscertpath=/data/tls.cert --macaroonpath=/data/chain/bitcoin/regtest/ad
 ./docker-lncli-alice.sh listchannels # should not be empty
 ./docker-lncli-bob.sh listchannels # should not be empty
 
+./docker-lncli-alice.sh closechannel --funding_txid "<funding_id in listchannels>" --output_index="<output_index in listchannels>"
+```
+
+### Payment
+
+First you must open channel according to the above tutorial.
+
+```sh
+# Alice Creates payment request for 1000 millisatothis
+invoice_alice=`./docker-lncli-alice.sh addinvoice --memo "電気代" --amt 1000 | jq -r ".payment_request"`
+
+# Bob Check the content of the payment request
+./docker-lncli-bob.sh decodepayreq $invoice_alice
+
+# Pay from bob to alice
+./docker-lncli-bob.sh payinvoice $invoice_alice
+```
+
+### Recovery
+
+```sh
 # now lets stop nodes
 docker-compose down
 docker-compose up
