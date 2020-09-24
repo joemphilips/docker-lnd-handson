@@ -4,7 +4,7 @@
 ### Basic setup
 
 ```sh
-source env.sh
+source env.sh # don't forget to do this for every terminal you use.
 docker-compose up
 
 # make sure it returns some kind of macaroon error (because we haven't create wallet, some rpcs don't work)
