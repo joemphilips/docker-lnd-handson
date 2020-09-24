@@ -42,10 +42,11 @@ lncli --tlscertpath=/data/tls.cert --macaroonpath=/data/chain/bitcoin/regtest/ad
 ### Channel open/close
 
 ```sh
-
 ## To open the channel, we need to estimate fee, so first fill txs into mempool and several blocks
 ./cliutils/prepare_tx_for_fee.sh
 
+# Check we have balance
+./docker-lncli-alice.sh walletbalance
 # check we don't have any utxos to use
 ./docker-lncli-alice.sh listunspent
 
@@ -101,12 +102,33 @@ invoice_alice=`./docker-lncli-alice.sh addinvoice --memo "電気代" --amt 1000 
 
 ```sh
 # now lets stop nodes
-docker-compose down
-docker-compose up
+docker-compose restart lnd_alice
 
 # This does not work, we must unlock the wallet
 ./docker-lncli-alice.sh getinfo
 
 docker-compose exec lnd_alice bash
+lncli --tlscertpath=/data/tls.cert --macaroonpath=/data/chain/bitcoin/regtest/admin.macaroon --rpcserver=localhost:32777 unlock
+
+# lets assume alice lost the wallet file (or she want to run in differnt machine or whatever)
+mv data/.lnd_alice/chain/bitcoin/regtest/wallet.db ./trash
+mv data/.lnd_alice/chain/bitcoin/regtest/channel.backup ./channel.backup
+
+docker-compose restart lnd_alice
+./docker-lncli-alice.sh getinfo # This does not work
+docker-compose exec lnd_alice bash
+# unlock does not work because she lost the wallet
+lncli --tlscertpath=/data/tls.cert --macaroonpath=/data/chain/bitcoin/regtest/admin.macaroon --rpcserver=localhost:32777 unlock
 lncli --tlscertpath=/data/tls.cert --macaroonpath=/data/chain/bitcoin/regtest/admin.macaroon --rpcserver=localhost:32777 create
+# recover from the cipher seed backup and its password
+
+# check the balance has been resumed
+./docker-lncli-alice.sh walletbalance
+
+# To backup the channel data, it requires latest state of channel.backup file.
+# There are [three ways to get this backup.](https://github.com/lightningnetwork/lnd/blob/master/docs/recovery.md#obtaining-scbs)
+./docker-lncli-alice.sh restorechanbackup ./channel_backup
+
+# Check that backed up channels are in the closing procedure
+./docker-lncli-alice.sh pendingchannels
 ```
