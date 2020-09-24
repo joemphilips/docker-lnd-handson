@@ -69,4 +69,11 @@ lncli --tlscertpath=/data/tls.cert --macaroonpath=/data/chain/bitcoin/regtest/ad
 ./docker-lncli-alice.sh listchannels # should not be empty
 ./docker-lncli-bob.sh listchannels # should not be empty
 
+# now lets stop nodes
+docker-compose down
+# This does not work, we must unlock the wallet
+./docker-lncli-alice.sh getinfo
+
+docker-compose exec lnd_alice bash
+lncli --tlscertpath=/data/tls.cert --macaroonpath=/data/chain/bitcoin/regtest/admin.macaroon --rpcserver=localhost:32777 create
 ```
