@@ -35,7 +35,7 @@ services:
       - "28333" # ZMQ
     volumes:
       - "${DATADIR_ROOT}/.bitcoin:/data"
-  lnd1:
+  lnd_alice:
     restart: unless-stopped
     image: joemphilips/lnd
     build:
@@ -55,14 +55,14 @@ services:
       - --bitcoind.zmqpubrawblock=tcp://bitcoind:28332
       - --bitcoind.zmqpubrawtx=tcp://bitcoind:28333
       - --trickledelay=1000
-      - --externalip=lnd1:9735
+      - --externalip=lnd_alice:9735
         #- --no-macaroons
       - --datadir=/data
       - --debuglevel=debug
         # - --noseedbackup
       - --tlscertpath=/data/tls.cert
       - --tlskeypath=/data/tls.key
-      - --tlsextradomain=lnd
+      - --tlsextradomain=lnd_alice
     ports:
       - "32736"
       - "32777"
@@ -71,9 +71,9 @@ services:
       - "32736"
       - "32777"
     volumes:
-      - "${DATADIR_ROOT}/.lnd2:/data"
+      - "${DATADIR_ROOT}/.lnd_alice:/data"
       - "${DATADIR_ROOT}/.bitcoin:/deps/.bitcoin"
-  lnd2:
+  lnd_bob:
     restart: unless-stopped
     image: joemphilips/lnd
     build:
@@ -83,8 +83,8 @@ services:
     environment:
       NETWORK: regtest
     command:
-      - --restlisten=0.0.0.0:32736
-      - --rpclisten=0.0.0.0:32777
+      - --restlisten=0.0.0.0:32737
+      - --rpclisten=0.0.0.0:32778
       - --bitcoin.regtest
       - --bitcoin.node=bitcoind
       - --bitcoind.rpchost=bitcoind:43782
@@ -93,21 +93,21 @@ services:
       - --bitcoind.zmqpubrawblock=tcp://bitcoind:28332
       - --bitcoind.zmqpubrawtx=tcp://bitcoind:28333
       - --trickledelay=1000
-      - --externalip=lnd2:9735
+      - --externalip=lnd_bob:9735
         #- --no-macaroons
       - --datadir=/data
       - --debuglevel=debug
         # - --noseedbackup
       - --tlscertpath=/data/tls.cert
       - --tlskeypath=/data/tls.key
-      - --tlsextradomain=lnd
+      - --tlsextradomain=lnd_bob
     ports:
-      - "32736"
-      - "32777"
+      - "32737"
+      - "32778"
     expose:
       - "9735"
-      - "32736"
-      - "32777"
+      - "32737"
+      - "32778"
     volumes:
-      - "${DATADIR_ROOT}/.lnd2:/data"
+      - "${DATADIR_ROOT}/.lnd_bob:/data"
       - "${DATADIR_ROOT}/.bitcoin:/deps/.bitcoin"
