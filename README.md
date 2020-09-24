@@ -5,6 +5,22 @@
 source env.sh
 docker-compose up
 
+# make sure it returns some kind of macaroon error (because we haven't create wallet, some rpcs don't work)
+./docker-lncli-alice.sh getinfo
+# First we are going to prepare wallet.
+# We don't use `--noseedbackup` option because we want to take a backup in aezeed mnemonic.
+# So we must first run `create` command
+# `./docker-lncli-alice.sh create` ... this does not work because it requires interactive setup.
+# So
+docker-compose exec lnd_alice bash
+lncli --tlscertpath=/data/tls.cert --macaroonpath=/data/chain/bitcoin/regtest/admin.macaroon --rpcserver=localhost:32777 create
+# This will show wallet cipher seed so take backup.
+
+# DO the same with bob
+docker-compose exec lnd_bob bash
+lncli --tlscertpath=/data/tls.cert --macaroonpath=/data/chain/bitcoin/regtest/admin.macaroon --rpcserver=localhost:32778 create
+
+
 ## Make sure everything is working fine.
 ./docker-bitcoin-cli.sh getblockchaininfo
 ./docker-lncli-alice.sh getinfo
@@ -22,19 +38,6 @@ docker-compose up
 
 ## To open the channel, we need to estimate fee, so first fill txs into mempool and several blocks
 ./cliutils/prepare_tx_for_fee.sh
-
-# Next we are going to prepare wallet.
-# We don't use `--noseedbackup` option because we want to take a backup in aezeed mnemonic.
-# So we must first run `create` command
-# `./docker-lncli-alice.sh create` ... this does not work because it requires interactive setup.
-# So
-docker-compose exec lnd_alice bash
-lncli --tlscertpath=/data/tls.cert --macaroonpath=/data/chain/bitcoin/regtest/admin.macaroon --rpcserver=localhost:32777 create
-# This will show wallet cipher seed so take backup.
-
-# DO the same with bob
-docker-compose exec lnd_bob bash
-lncli --tlscertpath=/data/tls.cert --macaroonpath=/data/chain/bitcoin/regtest/admin.macaroon --rpcserver=localhost:32778 create
 
 # check we don't have any utxos to use
 ./docker-lncli-alice.sh listunspent
@@ -71,6 +74,8 @@ lncli --tlscertpath=/data/tls.cert --macaroonpath=/data/chain/bitcoin/regtest/ad
 
 # now lets stop nodes
 docker-compose down
+docker-compose up
+
 # This does not work, we must unlock the wallet
 ./docker-lncli-alice.sh getinfo
 
