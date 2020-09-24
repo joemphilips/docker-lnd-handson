@@ -1,3 +1,4 @@
+./docker-bitcoin-cli.sh getnewaddress "" bech32 | xargs  -IXX ./docker-bitcoin-cli.sh generatetoaddress 120 XX
 
 for i in `seq 0 6`; do
   for j in `seq 0 6`; do
