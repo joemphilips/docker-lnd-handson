@@ -1,7 +1,15 @@
 
 ## How to run tutorial
 
+Notice that You can always reset the state and start all over by deleting `./data` folder. i.e.
+```sh
+docker-compose down
+rm -rf ./data
+docker-compose up
+```
+
 ### Basic setup
+
 
 ```sh
 source env.sh # don't forget to do this for every terminal you use.
