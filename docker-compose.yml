@@ -102,3 +102,17 @@ services:
     volumes:
       - "${DATADIR_ROOT}/.lnd_bob:/data"
       - "${DATADIR_ROOT}/.bitcoin:/deps/.bitcoin"
+  rtl:
+    restart: unless-stopped
+    image: shahanafarooqui/rtl:0.9.1
+    environment:
+      HOST: "rtl"
+      LN_SERVER_URL: https://lnd_alice:32736
+      MACAROON_PATH: "/RTL/lnd_alice/chain/bitcoin/regtest/"
+      RTL_CONFIG_PATH: "/RTLConfig/"
+    volumes:
+      - "${DATADIR_ROOT}/rtl/:/RTLConfig"
+      - "${DATADIR_ROOT}/.lnd_alice:/RTL/lnd_alice"
+      - "${DATADIR_ROOT}/.lnd_bob:/RTL/lnd_bob"
+    ports:
+      - "3000:3000"

@@ -1,0 +1,29 @@
+{
+  "port": "3000",
+  "host": "rtl",
+  "defaultNodeIndex": 1,
+  "SSO": {
+    "rtlSSO": 0,
+    "rtlCookiePath": "",
+    "logoutRedirectLink": ""
+  },
+  "nodes": [
+    {
+      "index": 1,
+      "lnNode": "Node 1",
+      "lnImplementation": "LND",
+      "Authentication": {
+        "macaroonPath": "/RTL/lnd_alice/chain/bitcoin/regtest/admin.macaroon"
+      },
+      "Settings": {
+        "userPersona": "MERCHANT",
+        "themeMode": "NIGHT",
+        "themeColor": "PURPLE",
+        "enableLogging": true,
+        "lnServerUrl": "https://lnd_alice:32736",
+        "fiatConversion": false
+      }
+    }
+  ],
+  "multiPassHashed": "4c716d4cf211c7b7d2f3233c941771ad0507ea5bacf93b492766aa41ae9f720d"
+}

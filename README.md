@@ -5,7 +5,7 @@ Notice that You can always reset the state and start all over by deleting `./dat
 ```sh
 docker-compose down
 rm -rf ./data
-docker-compose up
+docker-compose up bitcoind lnd_alice lnd_bob
 ```
 
 ### Basic setup
@@ -13,7 +13,7 @@ docker-compose up
 
 ```sh
 source env.sh # don't forget to do this for every terminal you use.
-docker-compose up
+docker-compose up bitcoind lnd_alice lnd_bob
 
 # make sure it returns some kind of macaroon error (because we haven't create wallet, some rpcs don't work)
 ./docker-lncli-alice.sh getinfo
@@ -140,3 +140,5 @@ lncli --tlscertpath=/data/tls.cert --macaroonpath=/data/chain/bitcoin/regtest/ad
 # Check that backed up channels are in the closing procedure
 ./docker-lncli-alice.sh pendingchannels
 ```
+
+[Next Step: Monitor Lightinng in GUI with Ride the lightning](../RTL.md)
