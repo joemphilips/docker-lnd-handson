@@ -116,3 +116,9 @@ services:
       - "${DATADIR_ROOT}/.lnd_bob:/RTL/lnd_bob"
     ports:
       - "3000:3000"
+
+  boltz:
+    image: boltz/regtest:3.1.0
+    build:
+      context: ./Dockerfiles
+      dockerfile: boltz
