@@ -29,6 +29,8 @@ FROM node:14.16.0-alpine3.10 as final
 
 COPY --from=build /boltz-backend /boltz-backend
 
+RUN mkdir -p /data/boltz /data/lnd
+
 WORKDIR /boltz-backend
 
-CMD ["npm", "start"]
+ENTRYPOINT ["./bin/boltzd"]

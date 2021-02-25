@@ -17,7 +17,7 @@ RUN set -ex \
 	&& cd /tmp \
 	&& wget -qO "$BITCOIN_FILE" "$BITCOIN_URL$BITCOIN_FILE" \
 	&& echo "$BITCOIN_SHA256 $BITCOIN_FILE" | sha256sum -c - \
-	&& gpg --batch --keyserver keyserver.ubuntu.com --recv-keys "$BITCOIN_PGP_KEY" \
+	&& gpg --batch --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys "$BITCOIN_PGP_KEY" \
 	&& wget -qO bitcoin.asc "$BITCOIN_ASC_URL" \
 	&& sha256sum --ignore-missing --check bitcoin.asc \
 	&& gpg --verify bitcoin.asc \
