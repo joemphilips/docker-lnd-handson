@@ -50,8 +50,8 @@ lncli --tlscertpath=/data/tls.cert --macaroonpath=/data/chain/bitcoin/regtest/ad
 ### Channel open/close
 
 ```sh
-## To open the channel, we need to estimate fee, so first fill txs into mempool and several blocks
-./cliutils/prepare_tx_for_fee.sh
+## To open the channel, we need to estimate the fee, so first fill txs into mempool and several blocks
+./cliutils/prepare_tx_for_fee.sh # this should finish in less than one minute.
 
 # Check we have balance
 ./docker-lncli-alice.sh walletbalance
@@ -61,7 +61,7 @@ lncli --tlscertpath=/data/tls.cert --macaroonpath=/data/chain/bitcoin/regtest/ad
 # send on-chain funds to both sides.
 ./docker-lncli-alice.sh newaddress p2wkh | jq -r ".address" | xargs -IXX ./docker-bitcoin-cli.sh sendtoaddress XX 1
 ./docker-lncli-bob.sh newaddress p2wkh | jq -r ".address" | xargs -IXX ./docker-bitcoin-cli.sh sendtoaddress XX 1
-./docker-bitcoin-cli.sh generatetoaddress 6 bcrt1qjwfqxekdas249pr9fgcpxzuhmndv6dqlulh44m
+./docker-bitcoin-cli.sh generatetoaddress 6 bcrt1qjwfqxekdas249pr9fgcpxzuhmndv6dqlulh44m # Just for confirmation.
 
 # check that we now have one.
 ./docker-lncli-alice.sh listunspent
