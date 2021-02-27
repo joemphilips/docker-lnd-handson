@@ -1,6 +1,6 @@
 # Submarine Swap against [Boltz server](https://github.com/BoltzExchange/boltz-backend)
 
-Make sure you have done the [basic tutorial for lnd](./README.md) before working for this one.
+Make sure you have done the [basic tutorial for lnd](./1-LND.md) before working for this one.
 
 In this tutorial we will go through creating submarine swap for Lightning-BTC/onchain-BTC
 
@@ -11,8 +11,9 @@ First, lets run every necessary contains and prepare lnd, we assume that bob is 
 At the time of writing, The most common service for managing the channel balance is using [Lightning Loop](https://github.com/lightninglabs/loop).
 The downside is that currently its server side is not open source.
 
-In our case, we wanted to first act as  liquidity taker (i.e. user of the service),
-but wanted to leave a choice to become a liquidity maker  (i.e. run service by ourselves) later.
+In our case, we wanted to first act as liquidity taker (i.e. user of the service),
+but wanted to leave a choice to become a liquidity maker (i.e. run service by ourselves) later,
+so the fact that we can not get serverside run by ourselves is a big downside.
 
 Among following choices, we first decided to try Boltz, since its documents and codebase seemed better.
 
@@ -45,7 +46,7 @@ And in different terminal...
 curl localhost:9001/version
 
 # let's make sure the node is the one bob owns.
-curl localhost:9001/getnodes
+curl localhost:9001/getnodes | jq
 # and compare with the response of `./docker-lncli-bob.sh getinfo `
 ```
 
@@ -114,11 +115,19 @@ She will see something like
 
 If the `"fees"` are in acceptable range, she will proceed with creating channel against the Bob.
 
-```sh
-# Create channel from Alice to Bob
-./docker-lncli-bob.sh getinfo | jq ".identity_pubkey" | xargs -IXX ./docker-lncli-alice.sh openchannel --private XX 500000
+```s
+# connect in transport layer
+curl localhost:9001/getnodes | jq ".nodes.BTC.uris[0]" | xargs -I XX ./docker-lncli-alice.sh connect XX
+
+# Create channel from Alice to Bob (If you have enough funds, send from bitcoind. If you forget how to, go back to previous article)
+curl localhost:9001/getnodes | jq ".nodes.BTC.nodeKey" | xargs -I XX ./docker-lncli-alice.sh openchannel --private XX 500000
+# Or instead you can run `./docker-lncli-bob.sh getinfo | jq ".identity_pubkey" | xargs -IXX ./docker-lncli-alice.sh openchannel --private XX 500000`
+
 # confirm the channel
 ./docker-bitcoin-cli.sh generatetoaddress 6 bcrt1qjwfqxekdas249pr9fgcpxzuhmndv6dqlulh44m
+
+
+# check your channel is really open with `listchannel` command.
 ```
 
 ### Perform Submarine Swap
@@ -146,7 +155,7 @@ echo $createswap_resp
 # Since alice does not trust Bob, she must check the `payment_hash` in the invoice is equal
 # To the one she sent to Bob, thus Bob can not claim the payment unless Alice reveals
 # her preimage
-[[ $payment_preimage == $(echo $createswap_resp | jq .invoice | xargs ./docker-lncli-alice.sh decodepayreq | jq .payment_hash ) ]] && echo Ok || echo "Bob cheated"
+[[ $preimage_hash == $(echo $createswap_resp | jq .invoice | xargs ./docker-lncli-alice.sh decodepayreq | jq -r .payment_hash ) ]] && echo Ok || echo "Bob cheated"
 # Also check the amount to make sure the fee is not too high.
 expected_max_fee=20000
 onchain_amount=$(echo $createswap_resp | jq -r .onchainAmount)
@@ -156,7 +165,7 @@ swap_service_fee=$(echo "250000 - $onchain_amount" | bc)
 # Also make sure that the preimage+claim_privkey pair is enough to claim the funds from the redeemScript.
 preimage_hash_hash=$(echo $preimage_hash | bx ripemd160)
 redeem_hex=$(echo $createswap_resp | jq -r .redeemScript)
-echo $createswap_resp redeem_hex | bx script-decode
+echo $redeem_hex | bx script-decode
 # (In practice you must programatically check but lets just go on for now.)
 # This must be something like ...
 "size [20] if hash160 [$preimage_hash_hash] equalverify [$claim_pubkey] else drop [<refund block height>] cltv drop [<key to refund bob>] end if checksig"
@@ -171,14 +180,16 @@ If Alice is sure that Bob did not violate the protocol, she proceeds by offering
 
 ```sh
 # Alice pays to the invoice. This payment is not settled until alice receives on-chain payment and reveals her `preimage` to Bob.
-./docker-lncli-alice.sh payinvoice $(echo $createswap_resp | jq -r ".invoice") 
+# IMPORTANT: This will hang your terminal until it resolves, so you must run in another terminal
+./docker-lncli-alice.sh payinvoice <invoice field in $createswap_resp>
 
-# Let's send this work to background by Ctrl+z and check the swap status again.
+# Coming back to the original terminal, let's check the swap status again.
 # This time it must be `"status": "transaction.mempool"`
 swapstatus_mempool=$(curl -XPOST -H "Content-Type: application/json" -d '{"id": "'$(echo $createswap_resp | jq -r .id)'"}' localhost:9001/swapstatus  | jq)
+echo $swapstatus_mempool
 
 # Also, lets check that HTLC is on flight.
-./docker-lncli-alice.sh listchannels | jq .channels[].pending_htlcs
+./docker-lncli-alice.sh listchannels | jq ".channels[].pending_htlcs"
 
 # Let's make sure that Bob has really broadcasted the tx, and the tx amount is the one expected.
 # nit: we are querying to the blockchain just to make sure it has been broadcasted, but
@@ -201,16 +212,27 @@ actual_onchain_amount_sats=$(echo $swap_txo | jq ".value" | bx btc-to-satoshi)
 swap_vout=$(echo $swap_txo | jq .n)
 alice_payout_address=$(./docker-lncli-alice.sh newaddress p2wkh | jq ."address")
 
-# We use fixed fee. In practice Alice might want to use `TransactionBuilder` class in her library or whatever.
-# If you want to do it on cli you can run `feerate=$(./docker-bitcoin-cli.sh estimatesmartfee 3 | jq ".feerate")`
-alice_payout_amount=$(echo $actual_onchain_amount_sats - 3000 | bc)
-
-payout_tx=$(./docker-bitcoin-cli.sh createrawtransaction '[{ "txid": '$swap_tx_id', "vout": '$swap_vout'}]' '[{'$alice_payout_address': '$alice_payout_amount'}]')
-fee=""
-
-claim_privkey_wif=$(echo $claim_privkey | bx ec-to-wif -v 239) # 239 is for testnet.
-./docker-bitcoin-cli.sh signrawtransactionwithkey $payout_tx '["'$claim_privkey_wif'"]'
+feerate_sat_per_kbyte=$(./docker-bitcoin-cli.sh estimatesmartfee 5 | jq ".feerate" | bx btc-to-satoshi)
 ```
 
 Unfortunately I could not find any convenient way to create HTLC spending TX from CLI,
 So I created a small cli by myself, using low-level api of [NBitcoin](https://github.com/MetacoSA/NBitcoin)
+
+[Here's the repository](https://github.com/joemphilips/HTLCSpendTxCreator) You can run by following command but please make sure do two things before running.
+1. I haven't done anoything malicious in the codebase.
+2. You have installed [dotnet sdk 5](https://dotnet.microsoft.com/download/dotnet/5.0)
+
+```
+git clone https://github.com/joemphilips/HTLCSpendTxCreator
+cd HTLCSpendTxCreator
+
+alice_claim_tx=$(dotnet run -- --redeem $redeem_hex --txid $swap_tx_id --fee $feerate_sat_per_kbyte --amount $actual_onchain_amount_sats --outindex $swap_vout --privkey $claim_privkey --preimage $preimage --address $alice_payout_address --network regtest)
+cd ..
+```
+
+Then, broadcast and claim.
+
+```
+alice_claim_tx_id=$(./docker-bitcoin-cli.sh sendrawtransaction $alice_claim_tx)
+./docker-bitcoin-cli.sh generatetoaddress 6
+```
