@@ -4,8 +4,6 @@ Make sure you have done the [basic tutorial for lnd](./1-LND.md) before working 
 
 In this tutorial we will go through creating submarine swap for Lightning-BTC/onchain-BTC
 
-First, lets run every necessary contains and prepare lnd, we assume that bob is the one running the boltz server.
-
 ## Why Boltz?
 
 At the time of writing, The most common service for managing the channel balance is using [Lightning Loop](https://github.com/lightninglabs/loop).
@@ -22,6 +20,8 @@ Among following choices, we first decided to try Boltz, since its documents and 
 
 ## Prepare
 
+First, lets prepare lnd, we assume that bob is the one running the boltz server.
+
 ```sh
 source env.sh
 docker-compose up -d bitcoind lnd_alice lnd_bob
@@ -36,6 +36,7 @@ lncli --tlscertpath=/data/tls.cert --macaroonpath=/data/chain/bitcoin/regtest/ad
 docker-compose exec lnd_bob bash
 lncli --tlscertpath=/data/tls.cert --macaroonpath=/data/chain/bitcoin/regtest/admin.macaroon --rpcserver=localhost:32778 create
 
+# then run boltz server
 docker-compose up -d boltz
 docker-compose logs -f boltz
 ```
@@ -51,7 +52,7 @@ curl localhost:9001/getnodes | jq
 ```
 
 Make sure Alice and Bob are both funded and know each other on transport layer.
-Please go back to previous tutorial if you forget how to do it.
+Please go back to previous tutorial if you forgot how to do it.
 
 ## Create Submarine Swap
 
@@ -151,7 +152,7 @@ claim_pubkey=$(echo $claim_privkey | bx ec-to-public)
 createswap_resp=$(curl -XPOST -H "Content-Type: application/json" -d '{"type": "reversesubmarine", "pairId": "BTC/BTC", "orderSide": "buy", "invoiceAmount": 250000, "preimageHash": "'$preimage_hash'", "claimPublicKey": "'$claim_pubkey'" }' http://localhost:9001/createswap)
 
 # check the return value.
-echo $createswap_resp
+echo $createswap_resp | jq
 # Since alice does not trust Bob, she must check the `payment_hash` in the invoice is equal
 # To the one she sent to Bob, thus Bob can not claim the payment unless Alice reveals
 # her preimage
@@ -234,7 +235,7 @@ Then, broadcast and claim.
 
 ```
 alice_claim_tx_id=$(./docker-bitcoin-cli.sh sendrawtransaction $alice_claim_tx)
-./docker-bitcoin-cli.sh generatetoaddress 6
+./docker-bitcoin-cli.sh generatetoaddress 6 bcrt1qjwfqxekdas249pr9fgcpxzuhmndv6dqlulh44m
 ```
 
 > ... Here we are stucked since Bob must claim his on-chain funds, but he does not do anything.
