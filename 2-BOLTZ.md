@@ -236,3 +236,6 @@ Then, broadcast and claim.
 alice_claim_tx_id=$(./docker-bitcoin-cli.sh sendrawtransaction $alice_claim_tx)
 ./docker-bitcoin-cli.sh generatetoaddress 6
 ```
+
+> ... Here we are stucked since Bob must claim his on-chain funds, but he does not do anything.
+> TODO: write rest of the article when [the issue is solved](https://github.com/BoltzExchange/boltz-backend/issues/241)
