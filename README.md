@@ -1,10 +1,12 @@
 
 ## How to run tutorial
 
-Notice that You can always reset the state and start all over by deleting `./data` folder. i.e.
+Notice that You can always reset the state and start all over by resetting the `./data` folder. i.e.
+
 ```sh
 docker-compose down
 rm -rf ./data
+git checkout -- data
 docker-compose up bitcoind lnd_alice lnd_bob
 ```
 
