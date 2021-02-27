@@ -13,6 +13,7 @@ services:
     command:
       - bitcoind
       - -datadir=/data
+      - -wallet=cashcow
       - -regtest
       - -rpcauth=${BITCOIND_RPC_AUTH}
       - -rpcport=43782
@@ -25,6 +26,7 @@ services:
       - -deprecatedrpc=signrawtransaction
       - -assumevalid=00000000000000000012d0c0982d818aa909d78e54525b10563c698d89997632
       - -maxmempool=500 # MB
+      - -fallbackfee=0.0001
     expose:
       - "43782" # RPC
       - "39388" # P2P
