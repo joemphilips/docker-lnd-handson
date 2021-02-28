@@ -1,7 +1,7 @@
 FROM node:14.16.0-alpine3.10 as build
 
 LABEL maintainer="Joe Miyamoto <joemphilips@gmail.com>"
-ARG BOLTZ_VERSION=v2.4.3
+ARG BOLTZ_VERSION=trim-cookie-suffix
 
 # Install dependencies and install/build lnd.
 RUN apk add --no-cache --update alpine-sdk \

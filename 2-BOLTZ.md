@@ -4,14 +4,28 @@ Make sure you have done the [basic tutorial for lnd](./1-LND.md) before working 
 
 In this tutorial we will go through creating submarine swap for Lightning-BTC/onchain-BTC
 
+## Why Submarine Swap?
+
+Submarine swap is just an atomic exchange of LN funds and on-chain funds,
+it can be used for preventing channel from closing by maintaining the channel funds in a balanced state.
+The main reason to do this is to maintain in/outbound liquidity (i.e. ability to both receive/send funds through hop.)
+
+Another way to achieve this goal is to ask other node to open channel to your own node when your inbound liquidity run out.
+This methodology seems to have almost the same running cost with the submarine-swap methodology,
+but it has a following downside.
+
+1. More complex state management of the channels complared to having just one channel.
+2. You can not use an altcoin which has lower on-chain fee to reduce the cost (which is possible in case of submarine swap.)
+
 ## Why Boltz?
 
-At the time of writing, The most common service for managing the channel balance is using [Lightning Loop](https://github.com/lightninglabs/loop).
-The downside is that currently its server side is not open source.
+At the time of writing, The most common service for managing the channel balance by submarine swap is
+[Lightning Loop](https://github.com/lightninglabs/loop).
+The downside is that currently its liquidity maker (who takes small fee in contingent on the swap) side is proprietary and not open source.
 
-In our case, we wanted to first act as liquidity taker (i.e. user of the service),
-but wanted to leave a choice to become a liquidity maker (i.e. run service by ourselves) later,
-so the fact that we can not get serverside run by ourselves is a big downside.
+In our case, we wanted to first act as a liquidity taker (i.e. user of the service),
+but wanted to leave a choice to become a liquidity maker (i.e. run service by ourselves) later.
+So the fact that we can not run everything by ourselves is a big downside.
 
 Among following choices, we first decided to try Boltz, since its documents and codebase seemed better.
 
@@ -195,9 +209,9 @@ echo $swapstatus_mempool
 # Let's make sure that Bob has really broadcasted the tx, and the tx amount is the one expected.
 # nit: we are querying to the blockchain just to make sure it has been broadcasted, but
 # If you don't want to make a query you might just well decode the `hex` field in the response. You can do that with `bx tx-decode` or `bitcoin-cli decoderawtransaction` command.
-swap_tx_hex=$(echo $swapstatus_mempool | jq .transaction.hex)
-swap_tx_id=$(echo $swapstatus_mempool | jq .transaction.id) 
-swap_tx=$(echo $swap_tx_id | xargs -IXX ./docker-bitcoin-cli.sh getrawtransaction XX true)
+swap_tx_hex=$(echo $swapstatus_mempool | jq -r .transaction.hex)
+swap_tx_id=$(echo $swapstatus_mempool | jq -r .transaction.id) 
+swap_tx=$(./docker-bitcoin-cli.sh getrawtransaction $swap_tx_id true)
 lockup_address=$(echo $createswap_resp | jq .lockupAddress)
 swap_txo=$(echo $swap_tx | jq '.vout[] | select(.scriptPubKey.addresses[0] == '$lockup_address')')
 
@@ -219,7 +233,7 @@ feerate_sat_per_kbyte=$(./docker-bitcoin-cli.sh estimatesmartfee 5 | jq ".feerat
 Unfortunately I could not find any convenient way to create HTLC spending TX from CLI,
 So I created a small cli by myself, using low-level api of [NBitcoin](https://github.com/MetacoSA/NBitcoin)
 
-[Here's the repository](https://github.com/joemphilips/HTLCSpendTxCreator) You can run by following command but please make sure do two things before running.
+[Here's the repository](https://github.com/joemphilips/HTLCSpendTxCreator) You can run by following command but please make sure to do two things before running.
 1. I haven't done anoything malicious in the codebase.
 2. You have installed [dotnet sdk 5](https://dotnet.microsoft.com/download/dotnet/5.0)
 
@@ -238,5 +252,15 @@ alice_claim_tx_id=$(./docker-bitcoin-cli.sh sendrawtransaction $alice_claim_tx)
 ./docker-bitcoin-cli.sh generatetoaddress 6 bcrt1qjwfqxekdas249pr9fgcpxzuhmndv6dqlulh44m
 ```
 
-> ... Here we are stucked since Bob must claim his on-chain funds, but he does not do anything.
-> TODO: write rest of the article when [the issue is solved](https://github.com/BoltzExchange/boltz-backend/issues/241)
+This should resolve the hanging off-chain payment. Let's check swap status again.
+
+```sh
+curl -XPOST -H "Content-Type: application/json" -d '{"id": "'$(echo $createswap_resp | jq -r .id)'"}' localhost:9001/swapstatus  | jq
+```
+This should show
+
+```json
+{
+  "status": "invoice.settled"
+}
+```
