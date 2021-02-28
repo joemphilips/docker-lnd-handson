@@ -1,7 +1,18 @@
+# LND tutorial
 
-## How to run tutorial
+In this tutorial, we will learn basic LND operations in 4 categories
 
-Notice that You can always reset the state and start all over by resetting the `./data` folder. i.e.
+1. Basic Setup
+2. Channel open/close
+3. Payment
+4. Recovery
+
+We will use `docker-compose` to simulate regtest environment with 1 bitcoind node and 2 lnd node (Alice and Bob).
+Also, please install `jq` command before running.
+
+## How to run the tutorial
+
+Note that You can always reset the state and start all over by resetting the `./data` folder. i.e.
 
 ```sh
 docker-compose down
@@ -53,7 +64,6 @@ lncli --tlscertpath=/data/tls.cert --macaroonpath=/data/chain/bitcoin/regtest/ad
 
 ```sh
 ## To open the channel, we need to estimate the fee, so first fill txs into mempool and several blocks
-./docker-bitcoin-cli.sh createwallet cashcow
 ./cliutils/prepare_tx_for_fee.sh # this should finish in less than one minute.
 
 # Check we have balance
