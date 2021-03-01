@@ -7,7 +7,7 @@ In this tutorial we will go through creating submarine swap for Lightning-BTC/on
 ## Why Submarine Swap?
 
 Submarine swap is just an atomic exchange of LN funds and on-chain funds,
-it can be used for preventing channel from closing by maintaining the channel funds in a balanced state.
+it can be used for preventing a channel from being closed by maintaining the channel funds in a balanced state.
 The main reason to do this is to maintain in/outbound liquidity (i.e. ability to both receive/send funds through hop.)
 
 Another way to achieve this goal is to ask other node to open channel to your own node when your inbound liquidity run out.
@@ -149,15 +149,14 @@ curl localhost:9001/getnodes | jq ".nodes.BTC.nodeKey" | xargs -I XX ./docker-ln
 # check your channel is really open with `listchannel` command.
 ```
 
-Note that since this is a private channel, when you issue an invoice you must always
-add route hint by `--private` option to `addinvoice` command.
-
+Note that since this is a private channel, when you issue an invoice you may want to
+add a route hint by `--private` option to `addinvoice` command.
 
 ## Perform Reverse Submarine Swap
 
 ### Alice requests reverse-submarine swap.
 
-Next, Alice will request the invoice to Bob, but for she needs to tell aditional info more than regular LN payment so that Bob can make on-chain payment to Alice contingent to her off-chain payment.
+Next, Alice will request the invoice to Bob, and she needs to tell aditional info more than regular LN payment so that Bob can make on-chain payment to Alice contingent to her off-chain payment.
 
 So she must prepare some hash/preimage pair, this can be done in many ways but here we
 use `bx` cli tool from [libbitcoin-explorer](https://github.com/libbitcoin/libbitcoin-explorer)
@@ -245,7 +244,8 @@ feerate_sat_per_kbyte=$(./docker-bitcoin-cli.sh estimatesmartfee 5 | jq ".feerat
 Unfortunately I could not find any convenient way to create HTLC spending TX from CLI,
 So I created a small cli by myself, using low-level api of [NBitcoin](https://github.com/MetacoSA/NBitcoin)
 
-[Here's the repository](https://github.com/joemphilips/HTLCSpendTxCreator) You can run by following command but please make sure to do two things before running.
+[Here's the repository](https://github.com/joemphilips/HTLCSpendTxCreator)
+You can run it by the following command but please make sure to do two things before running.
 1. I haven't done anoything malicious in the codebase.
 2. You have installed [dotnet sdk 5](https://dotnet.microsoft.com/download/dotnet/5.0)
 
@@ -257,9 +257,9 @@ alice_claim_tx=$(dotnet run -- --redeem $redeem_hex --txid $swap_tx_id --fee $fe
 cd ..
 ```
 
-Then, broadcast and claim.
+Then, broadcast the tx and claim funds.
 
-```
+```sh
 alice_claim_tx_id=$(./docker-bitcoin-cli.sh sendrawtransaction $alice_claim_tx)
 ./docker-bitcoin-cli.sh generatetoaddress 6 bcrt1qjwfqxekdas249pr9fgcpxzuhmndv6dqlulh44m
 ```
@@ -313,9 +313,9 @@ refund_pubkey=$(echo $refund_privkey | bx ec-to-public)
 
 # This time, alice must create her invoice.
 
-alice_addinvoice_resp=$(./docker-lncli-alice.sh addholdinvoice --memo "For_submarine_swap" --amt 250000)
-
+alice_addinvoice_resp=$(./docker-lncli-alice.sh addinvoice --memo "For_submarine_swap" --amt 250000)
 # Create swap.
+
 createswap_resp=$(curl -XPOST -H "Content-Type: application/json" -d '{"type": "submarine", "pairId": "BTC/BTC", "orderSide": "buy", "invoice": '$(echo $alice_addinvoice_resp | jq .payment_request)', "refundPublicKey": "'$refund_pubkey'" }' http://localhost:9001/createswap)
 
 echo $createswap_resp
@@ -333,10 +333,13 @@ Notice the difference with the reverse swap.
   * `claimPublicKey`
   * `invoiceAmount`
 * Following fields are added.
-  * `invoice` ... so that bob can offer alice a off-chain payment
+  * `invoice` ... so that bob can offer alice an off-chain payment
   * `refundPublicKey` ... so that Alice can get her fund back when Bob is unresponsive.
 
 ###### difference in Response
+
+* `address` instead `invoice` which she must pay.
+* `acceptZeroConf` ... Whether the server accepts a zero-conf.
 
 ### Alice validates the response
 
@@ -350,13 +353,13 @@ preimage_hash_hash=$(echo $preimage_hash | bx ripemd160)
 echo $redeem_hex | bx script-decode
 # It must be something like this.
 hash160 [$preimage_hash_hash] equal if [<some pubkey that only bob knows the secret>] else [b300] checklocktimeverify drop [$refund_pubkey] endif checksig
-
-## Then she must make sure that Bob has created off-chain payment offer with the `$preimage_hash`
-## There are many ways to do this but this time lets use `lookupinvoice` command
-./docker-lncli-alice.sh lookupinvoice $preimage_hash # Notice "state" is not "SETTLED" (i.e. payment finished), nor "OPEN" (i.e. payment has not started).
 ```
 
 ### Alice performs swap
+
+This time, the order of the commitment of funds is reversed.
+That means, Alice must first make on-chain HTLC to assure the Bob that he can take the on-chain funds when he get the preimage which matches the hash in the invoice.
+Then, bob will make a payment offer.
 
 ```sh
 htlc_id=$($(./docker-lncli-alice.sh sendcoins --addr $(echo $createswap_resp | jq -r .address) --amt $(echo $createswap_resp | jq .expectedAmount) --label 'HTLC for Submarine Swap') | jq .txid)
@@ -365,34 +368,17 @@ htlc_id=$($(./docker-lncli-alice.sh sendcoins --addr $(echo $createswap_resp | j
 
 # Just in case that boltz server does not accept 0-conf HTLC, confirm the HTLC tx.
 ./docker-bitcoin-cli.sh generatetoaddress 1 bcrt1qjwfqxekdas249pr9fgcpxzuhmndv6dqlulh44m
-```
 
-The boltz server logs something like this.
-```
-boltz        | 28/02/2021 13:19:27:091 verbose: Found unconfirmed lockup transaction for Swap cExNMK: 160876e021760c4802238f13a02b588c2b18fe80a50fd01563810d0d286d8b6a
-boltz        | 28/02/2021 13:19:27:146 debug: Accepted 0-conf lockup transaction for Swap cExNMK: 160876e021760c4802238f13a02b588c2b18fe80a50fd01563810d0d286d8b6a
-boltz        | 28/02/2021 13:19:27:148 debug: Swap cExNMK update: {
-boltz        |   "status": "transaction.mempool"
-boltz        | }
-boltz        | 28/02/2021 13:19:27:168 verbose: Paying invoice of Swap cExNMK
-boltz        | 28/02/2021 13:19:27:197 debug: Swap cExNMK update: {
-boltz        |   "status": "invoice.pending"
-boltz        | }
-boltz        | 28/02/2021 13:19:27:439 debug: Paid invoice of Swap cExNMK: 0a29dda440a4dd08dd90ab273c744b048c7d501c3a1c681d08baffb560563f20
-boltz        | 28/02/2021 13:19:27:469 debug: Swap cExNMK update: {
-boltz        |   "status": "invoice.paid"
-boltz        | }
-boltz        | 28/02/2021 13:19:27:499 info: Claimed BTC of Swap cExNMK in: b09631c9ec14f6940bb8ac6a628c7f3e797de5609cc5da781e4a97e6c1de123d
-boltz        | 28/02/2021 13:19:27:528 verbose: Swap cExNMK succeeded
-boltz        | 28/02/2021 13:19:27:528 debug: Swap cExNMK update: {
-boltz        |   "status": "transaction.claimed"
-boltz        | }
+## Then she must make sure that Bob has created off-chain payment offer with the `$preimage_hash`, and she received it by revaling preimage.
+## There are many ways for her to check this but this time lets use `lookupinvoice` command
+./docker-lncli-alice.sh lookupinvoice $preimage_hash # Notice "state" is "SETTLED".
 ```
 
 As you can see from the log, the status must be `"transaction.claimed"`.
 Let's double check by querying the swapstatus again
+
 ```sh
 curl -XPOST -H "Content-Type: application/json" -d '{"id": "'$(echo $createswap_resp | jq -r .id)'"}' localhost:9001/swapstatus  | jq
 ```
 
-This means that Bob has claimed his on-chain funds and 
+This means that Bob has claimed his on-chain fund by the preimage he obtained contingent on the off-chain payment.
