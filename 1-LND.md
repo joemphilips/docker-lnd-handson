@@ -21,6 +21,8 @@ git checkout -- data
 docker-compose up -d bitcoind lnd_alice lnd_bob
 ```
 
+This applies to every tutorial in this repository.
+
 ### Basic setup
 
 
@@ -117,6 +119,12 @@ invoice_alice=`./docker-lncli-alice.sh addinvoice --memo "電気代" --amt 1000 
 
 # Pay from bob to alice
 ./docker-lncli-bob.sh payinvoice $invoice_alice
+
+# You can check all invoices that you have issued in the following command.
+./docker-lncli-alice.sh listinvoices
+
+# Similarly, you can check your own payments by this command.
+./docker-lncli-bob.sh listpayments
 ```
 
 ### Recovery

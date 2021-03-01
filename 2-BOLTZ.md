@@ -32,6 +32,10 @@ Among following choices, we first decided to try Boltz, since its documents and 
 * [Submarine Swaps service](https://github.com/submarineswaps/swaps-service)
 * [Boltz-backend](https://github.com/BoltzExchange/boltz-backend)
 
+The purpose of this tutorial is to learn the basic concept and operation in CLI.
+In reality you might want to consider writing your own program using
+[boltz-core](https://github.com/BoltzExchange/boltz-core)
+
 ## Prepare
 
 First, lets prepare lnd, we assume that bob is the one running the boltz server.
@@ -68,7 +72,7 @@ curl localhost:9001/getnodes | jq
 Make sure Alice and Bob are both funded and know each other on transport layer.
 Please go back to previous tutorial if you forgot how to do it.
 
-## Create Submarine Swap
+### Outline
 
 You must first read [the Swap Lifecycle](https://docs.boltz.exchange/en/latest/lifecycle/) section of the boltz API reference.
 
@@ -145,9 +149,13 @@ curl localhost:9001/getnodes | jq ".nodes.BTC.nodeKey" | xargs -I XX ./docker-ln
 # check your channel is really open with `listchannel` command.
 ```
 
-### Perform Submarine Swap
+Note that since this is a private channel, when you issue an invoice you must always
+add route hint by `--private` option to `addinvoice` command.
 
-#### Alice requests reverse-submarine swap.
+
+## Perform Reverse Submarine Swap
+
+### Alice requests reverse-submarine swap.
 
 Next, Alice will request the invoice to Bob, but for she needs to tell aditional info more than regular LN payment so that Bob can make on-chain payment to Alice contingent to her off-chain payment.
 
@@ -219,7 +227,11 @@ swap_txo=$(echo $swap_tx | jq '.vout[] | select(.scriptPubKey.addresses[0] == '$
 actual_onchain_amount_sats=$(echo $swap_txo | jq ".value" | bx btc-to-satoshi)
 [[ $onchain_amount == $actual_onchain_amount_sats ]] && echo Ok || echo "Bogus onchain amount"
 
-# Alice should wait 1 or 2 confirmations for the tx at this point...
+# Unless Alice is ok to receive 0-conf TX, she must
+# wait 1 or 2 confirmations for the tx at this point.
+./docker-bitcoin-cli.sh generatetoaddress 2 bcrt1qjwfqxekdas249pr9fgcpxzuhmndv6dqlulh44m
+echo $createswap_resp | jq ".id" | xargs -IXXX curl -XPOST -H "Content-Type: application/json" -d '{"id": "'XXX'"}' localhost:9001/swapstatus
+# Make sure this returns "transaction.confirmed" status.
 
 # Alice must claim the on-chain fund.
 # Probably she want to do it programatically in real situation, but lets proceed as cli
@@ -264,3 +276,123 @@ This should show
   "status": "invoice.settled"
 }
 ```
+
+Also, let's check the alice has less off-chain balance and more on-chain balance
+just to make sure.
+```sh
+./docker-lncli-alice.sh listunspent # see there is one more UTXO she holds. the diff for this amount and 250000 is what she has lost in this swap (miner fee and swap service fee).
+./docker-lncli-alice.sh listchannels # see remote_balance has increased 250000
+```
+
+## Perform Normal Submarine Swap
+
+Next, Alice will perchase outbound liquidity.
+This is less likely since she can just open another channel to get outbound liquidity.
+Avoiding close/reopen might have an advantage in terms of operation simplicity,
+and for assuring that there is always one channel that she has to take care of.
+
+Let's say alice sent some outbound payment to perchase something, and she wants to regain her outbound liquidity to avoid closing channel.
+
+### Alice consumes her outbound liquidity
+
+In reality she will pay to some other service, but let's just pay to Bob to keep it simple.
+
+```sh
+payreq=$(./docker-lncli-bob.sh addinvoice --memo "家賃" --amt 200000 | jq ".payment_request")
+./docker-lncli-alice.sh payinvoice $payreq
+```
+
+
+### Alice requests submarine swap
+
+```sh
+# This is a key to get her onchain balanace when the counterparty becomes unresponsive.
+# We won't use it here but in reality she must keep it and use before refund timeout.
+refund_privkey=$(bx seed | bx ec-new)
+refund_pubkey=$(echo $refund_privkey | bx ec-to-public)
+
+# This time, alice must create her invoice.
+
+alice_addinvoice_resp=$(./docker-lncli-alice.sh addholdinvoice --memo "For_submarine_swap" --amt 250000)
+
+# Create swap.
+createswap_resp=$(curl -XPOST -H "Content-Type: application/json" -d '{"type": "submarine", "pairId": "BTC/BTC", "orderSide": "buy", "invoice": '$(echo $alice_addinvoice_resp | jq .payment_request)', "refundPublicKey": "'$refund_pubkey'" }' http://localhost:9001/createswap)
+
+echo $createswap_resp
+
+# Now the swapstatus must be `invoice.set`
+curl -XPOST -H "Content-Type: application/json" -d '{"id": "'$(echo $createswap_resp | jq -r .id)'"}' localhost:9001/swapstatus  | jq
+```
+
+Notice the difference with the reverse swap.
+
+###### difference in Request
+* `type` field is now `submarine` instead of `reversesubmarine`
+* Following fields are lost.
+  * `preiamgeHash`
+  * `claimPublicKey`
+  * `invoiceAmount`
+* Following fields are added.
+  * `invoice` ... so that bob can offer alice a off-chain payment
+  * `refundPublicKey` ... so that Alice can get her fund back when Bob is unresponsive.
+
+###### difference in Response
+
+### Alice validates the response
+
+```sh
+# Check if address and redeem script matches.
+redeem_hex=$(echo $createswap_resp | jq -r .redeemScript)
+[[ $(./docker-bitcoin-cli.sh validateaddress $(echo $createswap_resp | jq -r .address) | jq -r .witness_program) == $(echo $redeem_hex | bx sha256) ]] && echo ok || echo "Bob_cheated"
+
+preimage_hash=$(echo $alice_addinvoice_resp | jq -r .r_hash)
+preimage_hash_hash=$(echo $preimage_hash | bx ripemd160)
+echo $redeem_hex | bx script-decode
+# It must be something like this.
+hash160 [$preimage_hash_hash] equal if [<some pubkey that only bob knows the secret>] else [b300] checklocktimeverify drop [$refund_pubkey] endif checksig
+
+## Then she must make sure that Bob has created off-chain payment offer with the `$preimage_hash`
+## There are many ways to do this but this time lets use `lookupinvoice` command
+./docker-lncli-alice.sh lookupinvoice $preimage_hash # Notice "state" is not "SETTLED" (i.e. payment finished), nor "OPEN" (i.e. payment has not started).
+```
+
+### Alice performs swap
+
+```sh
+htlc_id=$($(./docker-lncli-alice.sh sendcoins --addr $(echo $createswap_resp | jq -r .address) --amt $(echo $createswap_resp | jq .expectedAmount) --label 'HTLC for Submarine Swap') | jq .txid)
+
+# Alice must prepare a TX to refund her from HTLC when it times out (unhappy path), but we omit for simplicity.
+
+# Just in case that boltz server does not accept 0-conf HTLC, confirm the HTLC tx.
+./docker-bitcoin-cli.sh generatetoaddress 1 bcrt1qjwfqxekdas249pr9fgcpxzuhmndv6dqlulh44m
+```
+
+The boltz server logs something like this.
+```
+boltz        | 28/02/2021 13:19:27:091 verbose: Found unconfirmed lockup transaction for Swap cExNMK: 160876e021760c4802238f13a02b588c2b18fe80a50fd01563810d0d286d8b6a
+boltz        | 28/02/2021 13:19:27:146 debug: Accepted 0-conf lockup transaction for Swap cExNMK: 160876e021760c4802238f13a02b588c2b18fe80a50fd01563810d0d286d8b6a
+boltz        | 28/02/2021 13:19:27:148 debug: Swap cExNMK update: {
+boltz        |   "status": "transaction.mempool"
+boltz        | }
+boltz        | 28/02/2021 13:19:27:168 verbose: Paying invoice of Swap cExNMK
+boltz        | 28/02/2021 13:19:27:197 debug: Swap cExNMK update: {
+boltz        |   "status": "invoice.pending"
+boltz        | }
+boltz        | 28/02/2021 13:19:27:439 debug: Paid invoice of Swap cExNMK: 0a29dda440a4dd08dd90ab273c744b048c7d501c3a1c681d08baffb560563f20
+boltz        | 28/02/2021 13:19:27:469 debug: Swap cExNMK update: {
+boltz        |   "status": "invoice.paid"
+boltz        | }
+boltz        | 28/02/2021 13:19:27:499 info: Claimed BTC of Swap cExNMK in: b09631c9ec14f6940bb8ac6a628c7f3e797de5609cc5da781e4a97e6c1de123d
+boltz        | 28/02/2021 13:19:27:528 verbose: Swap cExNMK succeeded
+boltz        | 28/02/2021 13:19:27:528 debug: Swap cExNMK update: {
+boltz        |   "status": "transaction.claimed"
+boltz        | }
+```
+
+As you can see from the log, the status must be `"transaction.claimed"`.
+Let's double check by querying the swapstatus again
+```sh
+curl -XPOST -H "Content-Type: application/json" -d '{"id": "'$(echo $createswap_resp | jq -r .id)'"}' localhost:9001/swapstatus  | jq
+```
+
+This means that Bob has claimed his on-chain funds and 
