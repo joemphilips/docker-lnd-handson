@@ -1,4 +1,11 @@
+<<<<<<< Updated upstream
 set -e
+=======
+#!/usr/bin/env bash
+
+set -eu
+
+>>>>>>> Stashed changes
 ./docker-bitcoin-cli.sh getnewaddress "" bech32 | xargs  -IXX ./docker-bitcoin-cli.sh generatetoaddress 120 XX
 
 for i in `seq 0 6`; do
