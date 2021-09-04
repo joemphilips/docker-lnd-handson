@@ -66,6 +66,8 @@ services:
       - "9735"
       - "32736"
       - "32777"
+    ports:
+      - "32777:32777"
     volumes:
       - "${DATADIR_ROOT}/.lnd_alice:/data"
       - "${DATADIR_ROOT}/.bitcoin:/deps/.bitcoin"
@@ -101,8 +103,47 @@ services:
       - "9735"
       - "32737"
       - "32778"
+    ports:
+      - "32778:32778"
     volumes:
       - "${DATADIR_ROOT}/.lnd_bob:/data"
+      - "${DATADIR_ROOT}/.bitcoin:/deps/.bitcoin"
+  lnd_carol:
+    restart: unless-stopped
+    image: joemphilips/lnd
+    build:
+      context: ./Dockerfiles
+      dockerfile: lnd
+    entrypoint: ["./start-lnd.sh"]
+    environment:
+      NETWORK: regtest
+    command:
+      - --restlisten=0.0.0.0:32737
+      - --rpclisten=0.0.0.0:32779
+      - --bitcoin.regtest
+      - --bitcoin.node=bitcoind
+      - --bitcoind.rpchost=bitcoind:43782
+      - --bitcoind.rpcuser=${BITCOIND_RPC_USER}
+      - --bitcoind.rpcpass=${BITCOIND_RPC_PASS}
+      - --bitcoind.zmqpubrawblock=tcp://bitcoind:28332
+      - --bitcoind.zmqpubrawtx=tcp://bitcoind:28333
+      - --trickledelay=1000
+      - --externalip=lnd_carol:9735
+        #- --no-macaroons
+      - --datadir=/data
+      - --debuglevel=debug
+        # - --noseedbackup
+      - --tlscertpath=/data/tls.cert
+      - --tlskeypath=/data/tls.key
+      - --tlsextradomain=lnd_carol
+    expose:
+      - "9735"
+      - "32737"
+      - "32779"
+    ports:
+      - "32779:32779"
+    volumes:
+      - "${DATADIR_ROOT}/.lnd_carol:/data"
       - "${DATADIR_ROOT}/.bitcoin:/deps/.bitcoin"
   boltz:
     image: boltz/regtest:3.1.0
@@ -123,4 +164,3 @@ services:
     links:
       - "bitcoind"
       - "lnd_bob"
-
