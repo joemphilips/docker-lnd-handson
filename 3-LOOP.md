@@ -2,8 +2,9 @@
 
 First, lets start a new node named carol.
 
-Alice -----------> Bob --------> Carol
-              (Boltz server)   (Loop server)
+    Alice ---------------> Bob -----------> Carol
+(Boltz client)       (Boltz server)      (Loop server)
+(Loop client)
 
 ```bash
 # initialize carol's lnd as we done in alice and bob.

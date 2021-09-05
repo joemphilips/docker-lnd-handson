@@ -43,6 +43,8 @@ services:
     entrypoint: ["./start-lnd.sh"]
     environment:
       NETWORK: regtest
+    depends_on:
+      - bitcoind
     command:
       - --restlisten=0.0.0.0:32736
       - --rpclisten=0.0.0.0:32777
@@ -71,6 +73,29 @@ services:
     volumes:
       - "${DATADIR_ROOT}/.lnd_alice:/data"
       - "${DATADIR_ROOT}/.bitcoin:/deps/.bitcoin"
+
+  loopd:
+    image: joemphilips/loopd:v0.14.2-beta
+    build:
+      context: ./Dockerfiles
+      dockerfile: loopd
+      args:
+        - LOOPD_VERSION=v0.14.2-beta
+    restart: unless-stopped
+    volumes:
+      - "${DATADIR_ROOT}/.lnd_alice:/root/.lnd"
+    depends_on:
+      - lnd_alice
+    command:
+      - "loopd"
+      - "--network=regtest"
+      - "--debuglevel=debug"
+      - "--server.host=loopserver:11009"
+      - "--server.notls"
+      - "--lnd.host=lnd_alice:32777"
+      - "--lnd.macaroonpath=/root/.lnd/chain/bitcoin/regtest/admin.macaroon"
+      - "--lnd.tlspath=/root/.lnd/tls.cert"
+
   lnd_bob:
     restart: unless-stopped
     image: joemphilips/lnd
@@ -80,6 +105,8 @@ services:
     entrypoint: ["./start-lnd.sh"]
     environment:
       NETWORK: regtest
+    depends_on:
+      - bitcoind
     command:
       - --restlisten=0.0.0.0:32737
       - --rpclisten=0.0.0.0:32778
@@ -137,6 +164,8 @@ services:
     entrypoint: ["./start-lnd.sh"]
     environment:
       NETWORK: regtest
+    depends_on:
+      - bitcoind
     command:
       - --restlisten=0.0.0.0:32737
       - --rpclisten=0.0.0.0:32779
