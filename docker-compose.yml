@@ -59,7 +59,7 @@ services:
       - --externalip=lnd_alice:9735
         #- --no-macaroons
       - --datadir=/data
-      - --debuglevel=debug
+      - --debuglevel=debug,PEER=info
         # - --noseedbackup
       - --tlscertpath=/data/tls.cert
       - --tlskeypath=/data/tls.key
@@ -124,7 +124,7 @@ services:
       - --externalip=lnd_bob:9735
         #- --no-macaroons
       - --datadir=/data
-      - --debuglevel=debug
+      - --debuglevel=debug,PEER=info
         # - --noseedbackup
       - --tlscertpath=/data/tls.cert
       - --tlskeypath=/data/tls.key
@@ -183,7 +183,7 @@ services:
       - --externalip=lnd_carol:9735
         #- --no-macaroons
       - --datadir=/data
-      - --debuglevel=debug
+      - --debuglevel=debug,PEER=info
         # - --noseedbackup
       - --tlscertpath=/data/tls.cert
       - --tlskeypath=/data/tls.key
