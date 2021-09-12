@@ -43,6 +43,8 @@ services:
     entrypoint: ["./start-lnd.sh"]
     environment:
       NETWORK: regtest
+    depends_on:
+      - bitcoind
     command:
       - --restlisten=0.0.0.0:32736
       - --rpclisten=0.0.0.0:32777
@@ -57,7 +59,7 @@ services:
       - --externalip=lnd_alice:9735
         #- --no-macaroons
       - --datadir=/data
-      - --debuglevel=debug
+      - --debuglevel=debug,PEER=info
         # - --noseedbackup
       - --tlscertpath=/data/tls.cert
       - --tlskeypath=/data/tls.key
@@ -66,9 +68,37 @@ services:
       - "9735"
       - "32736"
       - "32777"
+    ports:
+      - "32777:32777"
     volumes:
       - "${DATADIR_ROOT}/.lnd_alice:/data"
       - "${DATADIR_ROOT}/.bitcoin:/deps/.bitcoin"
+
+  loopd:
+    image: joemphilips/loopd:v0.14.2-beta
+    build:
+      context: ./Dockerfiles
+      dockerfile: loopd
+      args:
+        - LOOPD_VERSION=v0.14.2-beta
+    restart: unless-stopped
+    volumes:
+      - "${DATADIR_ROOT}/.lnd_alice:/root/.lnd"
+    depends_on:
+      - lnd_alice
+    command:
+      - "loopd"
+      - "--network=regtest"
+      - "--debuglevel=debug"
+      - "--server.host=loopserver:11009"
+      - "--server.notls"
+      - "--lnd.host=lnd_alice:32777"
+      - "--lnd.macaroonpath=/root/.lnd/chain/bitcoin/regtest/admin.macaroon"
+      - "--lnd.tlspath=/root/.lnd/tls.cert"
+    expose:
+      - "8081" # server
+      - "11010" # rpc
+
   lnd_bob:
     restart: unless-stopped
     image: joemphilips/lnd
@@ -78,6 +108,8 @@ services:
     entrypoint: ["./start-lnd.sh"]
     environment:
       NETWORK: regtest
+    depends_on:
+      - bitcoind
     command:
       - --restlisten=0.0.0.0:32737
       - --rpclisten=0.0.0.0:32778
@@ -92,7 +124,7 @@ services:
       - --externalip=lnd_bob:9735
         #- --no-macaroons
       - --datadir=/data
-      - --debuglevel=debug
+      - --debuglevel=debug,PEER=info
         # - --noseedbackup
       - --tlscertpath=/data/tls.cert
       - --tlskeypath=/data/tls.key
@@ -101,6 +133,8 @@ services:
       - "9735"
       - "32737"
       - "32778"
+    ports:
+      - "32778:32778"
     volumes:
       - "${DATADIR_ROOT}/.lnd_bob:/data"
       - "${DATADIR_ROOT}/.bitcoin:/deps/.bitcoin"
@@ -124,3 +158,58 @@ services:
       - "bitcoind"
       - "lnd_bob"
 
+  lnd_carol:
+    restart: unless-stopped
+    image: joemphilips/lnd
+    build:
+      context: ./Dockerfiles
+      dockerfile: lnd
+    entrypoint: ["./start-lnd.sh"]
+    environment:
+      NETWORK: regtest
+    depends_on:
+      - bitcoind
+    command:
+      - --restlisten=0.0.0.0:32737
+      - --rpclisten=0.0.0.0:32779
+      - --bitcoin.regtest
+      - --bitcoin.node=bitcoind
+      - --bitcoind.rpchost=bitcoind:43782
+      - --bitcoind.rpcuser=${BITCOIND_RPC_USER}
+      - --bitcoind.rpcpass=${BITCOIND_RPC_PASS}
+      - --bitcoind.zmqpubrawblock=tcp://bitcoind:28332
+      - --bitcoind.zmqpubrawtx=tcp://bitcoind:28333
+      - --trickledelay=1000
+      - --externalip=lnd_carol:9735
+        #- --no-macaroons
+      - --datadir=/data
+      - --debuglevel=debug,PEER=info
+        # - --noseedbackup
+      - --tlscertpath=/data/tls.cert
+      - --tlskeypath=/data/tls.key
+      - --tlsextradomain=lnd_carol
+    expose:
+      - "9735"
+      - "32737"
+      - "32779"
+    ports:
+      - "32779:32779"
+    volumes:
+      - "${DATADIR_ROOT}/.lnd_carol:/data"
+      - "${DATADIR_ROOT}/.bitcoin:/deps/.bitcoin"
+  loopserver:
+    image: lightninglabs/loopserver:v0.8.2-beta
+    restart: unless-stopped
+    volumes:
+      - "${DATADIR_ROOT}/.lnd_carol:/root/.lnd"
+    depends_on:
+      - lnd_carol
+    command:
+      - "daemon"
+      - "--maxamt=5000000"
+      - "--lnd.host=lnd_carol:32779"
+      - "--lnd.macaroondir=/root/.lnd/chain/bitcoin/regtest"
+      - "--lnd.tlspath=/root/.lnd/tls.cert"
+volumes:
+  loopserver:
+  loopd:
