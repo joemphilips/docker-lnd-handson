@@ -41,7 +41,7 @@ Now let's check that the loop service is working correctly by querying the
 detail of the service to the server.
 
 ```bash
-./docker-loopd.sh terms
+./docker-loop.sh terms
 ```
 
 This should output something like
@@ -92,11 +92,11 @@ since lnd works weirdly when the channel is private, we omit this process and ju
 
 Let's query the current state of swaps which loopd manages
 ```bash
-./docker-loopd.sh listswaps # must return empty array
+./docker-loop.sh listswaps # must return empty array
 
 # We haven't set any rule yet, so this must return an error message something like ...
 # "[loop] no rules set for autolooper, please set rules using the setrule command"
-./docker-loopd.sh suggestswaps
+./docker-loop.sh suggestswaps
 ```
 
 ### Loop Out
@@ -111,20 +111,20 @@ Let's say she want to dispatch the loop-in when the `local_balance` of the chann
 becomes less than `10`% of the whole cahnnel capacity.
 
 ```bash
-./docker-lncli-alice.sh listchannels | jq -r ".channels[].chan_id"  | xargs -I XX ./docker-loopd.sh setrule XX --incoming_threshold=10
+./docker-lncli-alice.sh listchannels | jq -r ".channels[].chan_id"  | xargs -I XX ./docker-loop.sh setrule XX --incoming_threshold=10
 ```
 
 Let's make sure the rule is set correctly by `getparams` rpc.
 
 ```bash
-./docker-loopd.sh getparams # Check the `"rules"` field in the response is not an empty field.
+./docker-loop.sh getparams # Check the `"rules"` field in the response is not an empty field.
 ```
 
 Now let's check how the `listswaps` and `suggestswaps` response has changed.
 
 ```bash
-./docker-loopd.sh listswaps # empty array, same as before.
-./docker-loopd.sh suggestswaps # Something like below.
+./docker-loop.sh listswaps # empty array, same as before.
+./docker-loop.sh suggestswaps # Something like below.
 ```
 
 ```json
@@ -153,7 +153,7 @@ amount_to_pay=$(echo $alice_incoming_liquidity - 20000 | bc)
 alice_invoice=$(./docker-lncli-alice.sh addinvoice --amt $amount_to_pay | jq -r ".payment_request")
 
 ./docker-lncli-carol.sh payinvoice $alice_invoice
-./docker-loopd.sh suggestswaps
+./docker-loop.sh suggestswaps
 ```
 
 This will probably tell you that a swap is disqualified because of `"reason": "AUTO_REASON_MINER_FEE"`
@@ -164,10 +164,10 @@ This can be avoid by setting parameters.
 
 ```bash
 # The total fee percent must be set independently from other parameters.
-./docker-loopd.sh setparams \
+./docker-loop.sh setparams \
     --feepercent=8
 
-./docker-loopd.sh setparams \
+./docker-loop.sh setparams \
     --maxminer=20000 \
     --maxswapfee=10 \
     --sweeplimit=50 \
@@ -211,7 +211,7 @@ But you probably want to allow more concurren execution than the default in gene
 So let's loose the restriction.
 
 ```bash
-./docker-loopd.sh setparams \
+./docker-loop.sh setparams \
   --sweepconf=40 \
   --autoinflight=2
 ```
@@ -231,7 +231,7 @@ manulally, than automaticaly, automatic execution requires you to set the budget
 Before actually dispatching the swap, let's change the failure backoff time to suite our regtest environment
 
 ```bash
-./docker-loopd.sh setparams --failurebackoff=10
+./docker-loop.sh setparams --failurebackoff=10
 ```
 
 `failurebackoff` is a duration time (in seconds) to not perform another swap when once it failed.
@@ -241,10 +241,10 @@ We wan't to retry as soon as possible when the swap failes.
 Now, let's perform actual loop-out swap manually.
 
 ```bash
-swapsuggestion=$(./docker-loopd.sh suggestswaps)
+swapsuggestion=$(./docker-loop.sh suggestswaps)
 label=$(echo $swapsuggestion | jq -r ".loop_out[0].label")
 
-./docker-loopd.sh out \
+./docker-loop.sh out \
   --amt=$(echo $swapsuggestion | jq -r ".loop_out[0].amt") \
   --channel=$(echo $swapsuggestion | jq -r ".loop_out[0].outgoing_chan_set[0]") \
   --max_swap_routing_fee=$(echo $swapsuggestion | jq -r ".loop_out[0].max_swap_routing_fee") \
@@ -258,7 +258,7 @@ But in regtest there is no other loop-out request to batch, so the loopserver wi
 Now let's monitor this swap and verify that it finishes correctly when new blocks come.
 
 ```bash
-./docker-loopd.sh monitor
+./docker-loop.sh monitor
 
 # In another tty...
  ./docker-bitcoin-cli.sh generatetoaddress 6 bcrt1qjwfqxekdas249pr9fgcpxzuhmndv6dqlulh44m
@@ -271,7 +271,7 @@ You can confirm that the swap was successful by `listswaps`
 Next we are going to set the autoloop feature on,
 
 ```bash
-./docker-loopd.sh setparams \
+./docker-loop.sh setparams \
   --autoloop=true
 ```
 
