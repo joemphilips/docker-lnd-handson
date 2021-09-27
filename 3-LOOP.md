@@ -71,8 +71,8 @@ Amount: 250000 - 5000000
 ./docker-lncli-bob.sh getinfo | jq ".uris[0]" | xargs -IXX ./docker-lncli-carol.sh connect XX
 ```
 
-~~We want to simulate the realistic situation here.
-So first, we assume Bob is Lightning service provider (LSP) that alice uses.
+~~We want to simulate a realistic situation here.
+So first, we assume that Bob is a Lightning service provider (LSP) that alice uses.
 Alice wants to connect Bob privately, because she knows she is liquidity consumer, thus there is no point for making the channel public to promote routing.
 Bob, on the otherhand, wants to promote others to use his channel for routing, for the sake of earning routing fee.
 So the channel from Alice -> Bob must be private, and Bob -> Carol must be public.~~
@@ -108,7 +108,7 @@ get exhaused. So she wants to dispatch a loop-out swap when necessary.
 In that case, she must set `--incoming_threshold` to the channel by `setrule` rpc.
 
 Let's say she want to dispatch the loop-in when the `local_balance` of the channel
-becomes less than `10`% of the whole cahnnel capacity.
+becomes less than `10`% of the whole channel capacity.
 
 ```bash
 ./docker-lncli-alice.sh listchannels | jq -r ".channels[].chan_id"  | xargs -I XX ./docker-loop.sh setrule XX --incoming_threshold=10
@@ -221,12 +221,12 @@ So let's loose the restriction.
 `--minamt`, `--maxamt` is for controling the size of the swap.
 This is probably useless in most cases, so I will omit the explanation.
 
-#### Swap Execution
+### Loop Out: Swap Execution
 
 From now on, we will explain the actual exectuion of the swap, first 
 manulally, than automaticaly, automatic execution requires you to set the budget.
 
-##### Manual swap dispatch
+#### Manual swap dispatch
 
 Before actually dispatching the swap, let's change the failure backoff time to suite our regtest environment
 
@@ -238,14 +238,25 @@ Before actually dispatching the swap, let's change the failure backoff time to s
 The default value is `86400`, which is too long for a regtest environment.
 We wan't to retry as soon as possible when the swap failes.
 
+```bash
+swapsuggestion=$(./docker-loop.sh suggestswaps)
+amt=$(echo $swapsuggestion | jq -r ".loop_out[0].amt")
+```
+
+Let's check the quote
+
+```bash
+./docker-loop.sh quote out $amt
+```
+
+The fee must match the sum of those suggest in the `suggestswap` rpc.
+
 Now, let's perform actual loop-out swap manually.
 
 ```bash
-swapsuggestion=$(./docker-loop.sh suggestswaps)
 label=$(echo $swapsuggestion | jq -r ".loop_out[0].label")
-
 ./docker-loop.sh out \
-  --amt=$(echo $swapsuggestion | jq -r ".loop_out[0].amt") \
+  --amt=$amt \
   --channel=$(echo $swapsuggestion | jq -r ".loop_out[0].outgoing_chan_set[0]") \
   --max_swap_routing_fee=$(echo $swapsuggestion | jq -r ".loop_out[0].max_swap_routing_fee") \
   --label=$(echo "manual_dispatch-${label}") \
@@ -266,7 +277,7 @@ Now let's monitor this swap and verify that it finishes correctly when new block
 
 You can confirm that the swap was successful by `listswaps`
 
-##### Check the autoloop is working fine
+#### Check the autoloop is working fine
 
 Next we are going to set the autoloop feature on,
 
@@ -277,7 +288,7 @@ Next we are going to set the autoloop feature on,
 
 Then check the swap is working fine in the same way you did in above.
 
-###### Budget
+#### Budget
 
 Less importantly, you can specify the budget for the swap.
 
