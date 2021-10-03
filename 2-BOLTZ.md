@@ -49,19 +49,27 @@ docker-compose up -d bitcoind lnd_alice lnd_bob
 ## alice
 docker-compose exec lnd_alice bash
 lncli --tlscertpath=/data/tls.cert --macaroonpath=/data/chain/bitcoin/regtest/admin.macaroon --rpcserver=localhost:32777 create
+exit
 
 ## bob
 docker-compose exec lnd_bob bash
 lncli --tlscertpath=/data/tls.cert --macaroonpath=/data/chain/bitcoin/regtest/admin.macaroon --rpcserver=localhost:32778 create
+exit
 
-# then run boltz server
+# Boltz server may complain it if the lnd is not connected or the bitcoind has no blocks
+./docker-lncli-alice.sh getinfo | jq ".uris[0]" | xargs -IXX ./docker-lncli-bob.sh connect XX  
+./docker-bitcoin-cli.sh generatetoaddress 6 bcrt1qjwfqxekdas249pr9fgcpxzuhmndv6dqlulh44m
+
+# then run the boltz server
 docker-compose up -d boltz
 docker-compose logs -f boltz
 ```
-And in different terminal...
+And in a different terminal...
 
 ```sh
-# check REST api to make sure boltz working fine.
+source env.sh
+
+# check the REST api to make sure that the boltz server is working fine.
 curl localhost:9001/version
 
 # let's make sure the node is the one bob owns.
@@ -135,7 +143,7 @@ She will see something like
 If the `"fees"` are in acceptable range, she will proceed with creating channel against the Bob.
 
 ```s
-# connect in transport layer
+# Make sure the transport layer connection is established.
 curl localhost:9001/getnodes | jq ".nodes.BTC.uris[0]" | xargs -I XX ./docker-lncli-alice.sh connect XX
 
 # Create channel from Alice to Bob (If you have enough funds, send from bitcoind. If you forget how to, go back to previous article)

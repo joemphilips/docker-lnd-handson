@@ -154,6 +154,8 @@ services:
     volumes:
       - "${DATADIR_ROOT}/boltz:/data/boltz"
       - "${DATADIR_ROOT}/.lnd_bob:/data/lnd"
+    depends_on:
+      - bitcoind
     links:
       - "bitcoind"
       - "lnd_bob"

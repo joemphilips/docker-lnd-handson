@@ -108,7 +108,7 @@ lncli --tlscertpath=/data/tls.cert --macaroonpath=/data/chain/bitcoin/regtest/ad
 
 ### Payment
 
-First you must open channel according to the above tutorial.
+Don't forget to first open a channel according to the above tutorial.
 
 ```sh
 # Alice Creates payment request for 1000 millisatothis
