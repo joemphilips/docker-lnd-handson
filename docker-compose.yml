@@ -34,6 +34,39 @@ services:
       - "28333" # ZMQ
     volumes:
       - "${DATADIR_ROOT}/.bitcoin:/data"
+  litecoind:
+    restart: unless-stopped
+    build:
+      context: ./Dockerfiles
+      dockerfile: litecoin
+      cache_from:
+        - nloop/litecoind:latest
+    image: nloop/litecoind
+    environment:
+      LITECOIN_NETWORK: regtest
+      LITECOIN_RPC_AUTH: johndoe:75669617aaedb394397ddc7213bb1ea9$$3a50ee2f4dff3cd49475295124aa3d48a61d6ae3cdcb4d2cf199dac6551217f4
+    user: root:root
+    entrypoint: [ "litecoind" ]
+    command:
+      - -datadir=/data
+      - -wallet=cashcow
+      - -regtest
+      - -rpcauth=johndoe:75669617aaedb394397ddc7213bb1ea9$$3a50ee2f4dff3cd49475295124aa3d48a61d6ae3cdcb4d2cf199dac6551217f4
+      - -rpcport=43783
+      - -rpcbind=0.0.0.0:43783
+      - -rpcallowip=0.0.0.0/0
+      - -port=39388
+      - -txindex=1
+      - -zmqpubrawblock=tcp://0.0.0.0:28332
+      - -zmqpubrawtx=tcp://0.0.0.0:28333
+      - -deprecatedrpc=signrawtransaction
+      - -maxmempool=10 # MB
+      - -fallbackfee=0.0001
+    expose:
+      - "43783" # RPC
+      - "39388" # P2P
+    volumes:
+      - "${DATADIR_ROOT:?no_data_path}/litecoin:/data"
   lnd_alice:
     restart: unless-stopped
     image: joemphilips/lnd
