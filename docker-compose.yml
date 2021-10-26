@@ -140,7 +140,6 @@ services:
       - "${DATADIR_ROOT}/.bitcoin:/deps/.bitcoin"
   boltz:
     image: boltz/regtest:3.1.0
-    container_name: boltz
     restart: unless-stopped
     build:
       context: ./Dockerfiles
