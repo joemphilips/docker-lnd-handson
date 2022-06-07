@@ -15,7 +15,7 @@ Also, please install `jq` command before running.
 Note that You can always reset the state and start all over by resetting the `./data` folder. i.e.
 
 ```sh
-docker-compose down
+docker-compose down -v
 rm -rf ./data
 git checkout -- data
 docker-compose up -d bitcoind lnd_alice lnd_bob
