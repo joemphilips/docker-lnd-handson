@@ -1,10 +1,15 @@
 # Tutorial for c-lightning, dual-funding and static invoice.
 
-First, make sure you have done [the tutorial with LND](./1-LND.md). Here, we are going to do the same with c-lightning. with how to manage plugins.
+First, make sure you have done [the tutorial with LND](./1-LND.md). Here, we are going to do the same with c-lightning.
+with some additional functionalities of c-lightning
+
+* plugin mangement
+* dual funding channel
+* offer (static invoices)
 
 ## preliminiary
 
-Make sure you to load `env.sh` before running anything for a docker.
+Make sure to load `env.sh` before running anything for a docker.
 
 And make sure you know how to reset the state, as we did in lnd.
 
@@ -20,12 +25,14 @@ git checkout -- data
 
 ```sh
 # Start c-lightning, and lnd for the counterparty.
+# clighting_bob will be used later, when we need counterparty to support
+# c-lightning specific features.
 docker-compose up clightning_alice lnd_bob clightning_bob
 
 # list of available rpcs.
 ./docker-lightning-cli-alice.sh help
 
-# calling help for each rpc is bitcoind-style
+# calling help for each rpc can be done in a bitcoind-style `help` rpc.
 ./docker-lightning-cli-alice.sh help getinfo 
 
 # see the basic info for c-lightning node
@@ -61,7 +68,7 @@ bob_id=$(./docker-lncli-bob.sh getinfo | jq -r ".identity_pubkey")
 
 ```bash
 
-# Our funds must be empty. Let's check by
+# Our funds must be empty. Let's check it by
 ./docker-lightning-cli-alice.sh listfunds 
 
 # --- prepare on-chain funds ---
