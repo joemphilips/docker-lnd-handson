@@ -1,11 +1,11 @@
-# Tutorial for c-lightning, dual-funding and static invoice.
+# Tutorial for c-lightning, dual-funding and an offer
 
 First, make sure you have done [the tutorial with LND](./1-LND.md). Here, we are going to do the same with c-lightning.
-with some additional functionalities of c-lightning
+with some additional functionalities of c-lightning such as
 
 * plugin mangement
 * dual funding channel
-* offer (static invoices)
+* offer (some times referred as "static invoice")
 
 ## preliminiary
 
