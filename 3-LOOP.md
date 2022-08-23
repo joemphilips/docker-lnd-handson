@@ -20,7 +20,7 @@ First, lets start a new node named carol.
  # 4. lnd_carol
  # 5. loop server for Carol
  # 6. loop client for Alice
-docker-compose up -d
+docker-compose up -d \
   bitcoind \
   lnd_alice \
   lnd_bob \
