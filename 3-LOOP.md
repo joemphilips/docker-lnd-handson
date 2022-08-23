@@ -18,10 +18,15 @@ First, lets start a new node named carol.
  # 2. lnd_alice
  # 3. lnd_bob
  # 4. lnd_carol
- # 5. Boltz server for Bob (unneccessary really)
- # 6. loop server for Carol
- # 7. loop client for Alice
-docker-compose up
+ # 5. loop server for Carol
+ # 6. loop client for Alice
+docker-compose up -d \
+  bitcoind \
+  lnd_alice \
+  lnd_bob \
+  lnd_carol \
+  loopserver \
+  loopd
 
 # Create (or unlock) three lnd_servers
 docker-compose exec lnd_alice bash

@@ -1,0 +1,20 @@
+FROM debian:stretch-slim as build
+
+RUN set -ex \
+	&& apt-get update \
+	&& apt-get install -qq --no-install-recommends ca-certificates dirmngr gosu wget \
+	&& rm -rf /var/lib/apt/lists/*
+
+ENV ELEMENTS_VERSION 0.21.0.2
+ENV ELEMENTS_FILE elements-elements-0.21.0.2-x86_64-linux-gnu.tar.gz
+ENV ELEMENTS_URL https://github.com/ElementsProject/elements/releases/download/elements-0.21.0.2/
+ENV ELEMENTS_ASC_URL https://github.com/ElementsProject/elements/releases/download/elements-0.21.0.2/SHA256SUMS.asc
+
+# install  binaries
+RUN set -ex \
+	&& cd /tmp \
+	&& wget -qO "$ELEMENTS_FILE" "$ELEMENTS_URL$ELEMENTS_FILE" \
+	&& tar -xzvf "$ELEMENTS_FILE" -C /usr/local --strip-components=1 --exclude=*-qt \
+	&& rm -rf /tmp/*
+
+CMD ["elementsd"]
