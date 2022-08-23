@@ -159,7 +159,7 @@ Check `"status"` field, and we can tell that it requires 3 conf for channel to b
 
 # now we have a channel with `CHANNELD_NORMAL`
  ./docker-lightning-cli-alice.sh listpeers
- ./docker-lightning-cli-alice.sh listchannels.
+ ./docker-lightning-cli-alice.sh listchannels
 # you can also see `short_channel_id` field which we did not have before.
 
 # there must be a short summary for the channel.
@@ -172,7 +172,7 @@ Check `"status"` field, and we can tell that it requires 3 conf for channel to b
 # get total on-chain balance
 ./docker-lightning-cli-alice.sh listfunds | jq "[.outputs[] | .value] | add"
 # get total off-chain balance
-/docker-lightning-cli-alice.sh listfunds | jq "[.channels[] | .channel_sat] | add
+/docker-lightning-cli-alice.sh listfunds | jq "[.channels[] | .channel_sat] | add"
 ```
 
 ### bolt11 payment
