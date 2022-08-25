@@ -19,7 +19,6 @@ source env.sh # don't forget to do this in every terminal
 
 docker-compose up -d \
   bitcoind \
-  elementsd \
   lnd_alice \
   lnd_bob
 
@@ -162,3 +161,52 @@ perform swapin
 ```
 
 And confirm, check as in the case of `swapout`.
+
+
+## multi-asset swap
+
+
+###
+
+Let's proceed on Liquid-BTC to Lightning-BTC swap.
+
+We have only one instance of elementsd, but since peerswap specifies 
+`--elementsd.rpcwallet=` option, each peerswap daemon for alice and bob uses different wallets.
+
+
+```sh
+# Check which wallet we have.
+./docker-elements-cli.sh listwallets
+# and how much money they have.
+./docker-elements-cli.sh -rpcwallet=swaplnd_alice getbalance 
+# or
+./docker-pscli-alice.sh lbtc-getbalance # this does the same.
+
+# prepare funds for peerswap wallet.
+./docker-pscli-alice.sh lbtc-getaddress | jq ".address" | xargs -IXX ./docker-elements-cli.sh -rpcwallet=swap sendtoaddress XX 2
+./docker-pscli-bob.sh lbtc-getaddress | jq ".address" | xargs -IXX ./docker-elements-cli.sh -rpcwallet=swap sendtoaddress XX 2
+
+# confirm.
+./docker-elements-cli.sh -rpcwallet=swap getnewaddress | xargs -IXX ./docker-elements-cli.sh generatetoaddress 1 XX
+
+# do it again just for sure.
+./docker-pscli-alice.sh lbtc-getaddress | jq ".address" | xargs -IXX ./docker-elements-cli.sh -rpcwallet=swap sendtoaddress XX 2
+./docker-pscli-bob.sh lbtc-getaddress | jq ".address" | xargs -IXX ./docker-elements-cli.sh -rpcwallet=swap sendtoaddress XX 2
+# confirm.
+./docker-elements-cli.sh -rpcwallet=swap getnewaddress | xargs -IXX ./docker-elements-cli.sh generatetoaddress 1 XX
+./docker-elements-cli.sh -rpcwallet=swap getnewaddress | xargs -IXX ./docker-elements-cli.sh generatetoaddress 10 XX
+
+# now it must have some funds.
+./docker-pscli-alice.sh lbtc-getbalance
+./docker-pscli-bob.sh lbtc-getbalance
+```
+
+### perform swap
+
+Simply change `--asset` to `lbtc`.
+
+** Note: currently this does not work! The issue is tracked in https://github.com/ElementsProject/peerswap/issues/120 **
+
+```
+./docker-lncli-alice.sh listchannels | jq -c ".channels[].chan_id" | xargs -IXX ./docker-pscli-alice.sh swapout --sat_amt=200000 --channel_id=XX --asset=lbtc 
+```

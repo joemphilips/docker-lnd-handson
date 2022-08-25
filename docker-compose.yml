@@ -47,8 +47,23 @@ services:
     command:
       - elementsd
       - -datadir=/data
-      - -wallet=cashcow
-      - -regtest
+      - -wallet=swap
+      - -chain=elementsregtest
+      - -mainchainrpchost=bitcoind
+      - -mainchainrpcport=43782
+      - -mainchainrpcpassword=${BITCOIND_RPC_PASS}
+      - -mainchainrpcuser=${BITCOIND_RPC_USER}
+      - -validatepegin=0
+
+      # liquid testnet settings
+      # - -anyonecanspendaremine=0
+      - -initialfreecoins=21000000000000
+      # - -checkblockindex=0 
+      # - -con_dyna_deploy_start=0
+      # - -con_max_block_sig_size=150
+      # - -con_has_parent_chain=0
+      # - -parentgenesisblockhash=NULL
+
       - -rpcauth=${BITCOIND_RPC_AUTH}
       - -rpcport=43782
       - -rpcbind=0.0.0.0:43782
@@ -60,6 +75,7 @@ services:
       - -deprecatedrpc=signrawtransaction
       - -maxmempool=500 # MB
       - -fallbackfee=0.0001
+
     expose:
       - "43782" # RPC
       - "39388" # P2P
@@ -341,12 +357,14 @@ services:
       - "--elementsd.rpcport=43782"
       - "--elementsd.rpcuser=${BITCOIND_RPC_USER}"
       - "--elementsd.rpcpass=${BITCOIND_RPC_PASS}"
+      - "--elementsd.rpcwallet=swaplnd_alice"
     expose:
       - "42069"
     volumes:
       - "${DATADIR_ROOT}/.lnd_alice:/data/lnd"
       - "${DATADIR_ROOT}/peerswap_alice:/data/peerswap"
     depends_on:
+      - elementsd
       - lnd_alice
 
   peerswap_bob:
@@ -368,12 +386,14 @@ services:
       - "--elementsd.rpcport=43782"
       - "--elementsd.rpcuser=${BITCOIND_RPC_USER}"
       - "--elementsd.rpcpass=${BITCOIND_RPC_PASS}"
+      - "--elementsd.rpcwallet=swaplnd_bob"
     expose:
       - "42069"
     volumes:
       - "${DATADIR_ROOT}/.lnd_bob:/data/lnd"
       - "${DATADIR_ROOT}/peerswap_bob:/data/peerswap"
     depends_on:
+      - elementsd
       - lnd_bob
 
 volumes:
